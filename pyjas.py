@@ -206,13 +206,16 @@ def make_html(ne_list, filename, start_time):
                         color:black;
                     }
                     a:hover{
-                        background-color:#ffcc00;
+                        background-color:#FFF380;
                     }
+                    #data tbody tr:hover{
+						background-color:#FFF380;
+					}
                     </STYLE>
                         '''
         htmlfile.write(cssStyles)
         htmlfile.write("\n</HEAD>\n<BODY>\nThe status as on "+file_time+":\n\n<BR><BR>\n")
-        htmlfile.write("<TABLE BORDER=1><TR>\n\t<TH>DESTINATION</TH>\n\t<TH>SOURCE</TH>\n\t<TH>STATUS</TH>\n\t<TH>POWER LEVEL (dBm)</TH>\n</TR>")
+        htmlfile.write("<TABLE BORDER=1 ID='data'>\n<THEAD>\t\n<TR>\n\t<TH>DESTINATION</TH>\n\t<TH>SOURCE</TH>\n\t<TH>STATUS</TH>\n\t<TH>POWER LEVEL (dBm)</TH>\n\t</TR>\n</THEAD>\n<TBODY>\n")
         for row in ne_list:
             
             if 'Down' in str(row[2]):
@@ -230,7 +233,7 @@ def make_html(ne_list, filename, start_time):
             htmlfile.write('<TR>\n\t<TD>'+str(row[0])+'</TD>\n\t<TD>'+str(row[1])+
                            '</TD>\n\t<TD><CENTER><FONT COLOR='+status_color+str(row[2])+
                            '</FONT></CENTER></TD>\n\t<TD><CENTER><FONT COLOR='+power_color+str(row[3])+"</FONT></CENTER></TD>\n</TR>\n")
-        htmlfile.write("</TABLE>\n<br>")
+        htmlfile.write("\n</TBODY>\n</TABLE>\n<br>")
 
         #Make legend
         ip_dict=make_legend(filename)
