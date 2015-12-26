@@ -1,12 +1,6 @@
 #!/usr/bin/env python
 
 #Code by Abinash Sahu
-#
-#Things to do:
-#1. Auto cut off on slow connections
-#2. GUI
-#3. Write partial status list to file
-
 
 import time, Queue, threading, re, mechanize, os, sys, webbrowser, urllib2
 import pickle
@@ -136,8 +130,7 @@ class NE:
             return True
         
         return False
-        
-######################################################################################################
+    
 def get_node_1(node_queue, prev_node):
     th_count=1
     
@@ -162,14 +155,10 @@ def get_node_1(node_queue, prev_node):
     return()
 
 def get_node_2(node_queue, prev_node):
-    #print('Firing thrusters...')
     get_node_1(node_queue, prev_node)
     nodes_to_visit.join()
-    #print('Starting descent. . .')
     return()
-        
-#######################################################################################################
-
+    
 def make_legend(filename):
     wrk_dir=os.path.split(filename)
     if os.path.isfile(wrk_dir[0]+os.sep+'ipcache.tmp'):
@@ -296,7 +285,6 @@ if __name__=='__main__':
     if len(full_list)>1:
         print("Writing to file...")
         make_html(full_list, filename, start_time)
-        #print("CWD: : "+os.getcwd())
         print("Log recorded to "+filename+".")
     else:
         print("ERROR : Check LAN connection/settings")
