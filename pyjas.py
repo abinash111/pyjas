@@ -2,18 +2,28 @@
 
 #Code by Abinash Sahu
 
-import time, Queue, threading, re, mechanize, os, sys, webbrowser, urllib2
+import time
+import Queue
+import threading
+import re
+import mechanize
+import os
+import sys
+import webbrowser
+import urllib2
 import pickle
 
 nodes_to_visit=Queue.Queue()
 visited_nodes=[]
 max_num_threads=6
-node_dict={}
-full_list=[]
-#username=""
-#passw=""
+node_dict={} #Contains ip-name mapping of nodes in network with ip as key
+full_list=[] #Contains list of all links
 
 def check_or_make(folder_path):
+    """Check if provided folder exists at the specified location
+    otherwise create it there.
+    """
+    
     curr_directory=os.getcwd()	
     for folder in folder_path.split(os.sep):
         if os.path.isdir(folder):
@@ -33,9 +43,9 @@ class NE:
         self.baseurl='http://%s:20080/' % (self.ip)
 
         try:
-            br=mechanize.Browser()
-            br.add_password(self.baseurl, username, passw)		#Get user id and password from command line arguements
-            page=br.open(self.baseurl, timeout=10.0).read()		#Check if NE is accessible
+            br=mechanize.Browser()                                  #Create nechanize browser object
+            br.add_password(self.baseurl, username, passw)		    #Get user id and password from command line arguements
+            page=br.open(self.baseurl, timeout=10.0).read()		    #Check if NE is accessible
             if 'alarmBanner' in page:
                 print "Logged in to %s" % (self.baseurl)
 
@@ -48,9 +58,12 @@ class NE:
         return(None)
 
     def add_neighbours(self, br):
+        """Goes through the list of IPs  listed as neighbours (please 
+        keep auto-discover switched ON) and copies their state, IP & STM
+        port number.
+        """
         
-        #self.baseurl='http://%s:20080/' % (self.ip)
-
+        #Regex patterns
         name_pattern=r'\-(\S+.*?)\('
         row_pattern=r'<b>Trunk.*[\n]+.*?<SEL'
         ip_status_pattern=r'</A> </TH><TD >([\S]+).*?</TD><TD >.*?\d+(?:[\d\.]+){3}.*?(\d+(?:[\d\.]+){3}).*?</TD>'
@@ -82,10 +95,17 @@ class NE:
         return(self.name)
 
     def tell(self):
+        """For debugging only """
         return(self.name, self.neighbours)
 
     def backup(self, br):
-        #self.baseurl='http://%s:20080/' % (self.ip)
+        """Saves the node's cross-connects in another HTML file. Will replace
+        the last recorded cross-connect saved on the current day. That is to
+        say running first time on Wednesday will NOT overwrite Tuesday's data 
+        but running another time on Wednesday WILL overwrite the first 
+        cross-connect backup of Wednesday.
+        """
+        
         try:
             configs=br.open(self.baseurl+'EMSRequest/ViewConnections', timeout=10.0).read()
             start_copy=configs.find('<CAPTION><B>Cross')
@@ -105,6 +125,10 @@ class NE:
         return()
 
     def get_laser_data(self, br):
+        """Reads the received laser power from different STM ports and 
+        records them against the ports.
+        """
+        
         laser_pattern=r'<TD >STM\d+\-(\d.*?)</TD>.*?([\-\d].*?)</TD><TD >'
         
         try:
@@ -120,6 +144,7 @@ class NE:
         return()
 
     def check_online(self, url):
+        #For future use :P
         try:
             code=urllib2.urlopen(url, timeout=2).getcode()
         except urllib2.HTTPError as e:
@@ -130,8 +155,11 @@ class NE:
             return True
         
         return False
+
+def get_node(node_queue, prev_node):
+    """Gets a node from the Queue to process and spawn new threads
+    if required."""
     
-def get_node_1(node_queue, prev_node):
     th_count=1
     
     current_node=node_queue.get()
@@ -146,20 +174,19 @@ def get_node_1(node_queue, prev_node):
                     node_queue.put(neighbour[0])
                     th_count+=1
         for i in range(th_count):
-            th=threading.Thread(target=get_node_1, args=(node_queue,current_node, ))
-            #th.setDaemon(True)
+            th=threading.Thread(target=get_node, args=(node_queue,current_node, ))
+            th.setDaemon(True)
             th.start()
     node_queue.task_done()
     #print('Task Done')
     #exit()
     return()
 
-def get_node_2(node_queue, prev_node):
-    get_node_1(node_queue, prev_node)
-    nodes_to_visit.join()
-    return()
-    
 def make_legend(filename):
+    """Uses the IP Cache file to store/retrieve IP <> Name mappings. If 
+    the cache file exists opens it and updates else creates with the 
+    available data."""
+    
     wrk_dir=os.path.split(filename)
     if os.path.isfile(wrk_dir[0]+os.sep+'ipcache.tmp'):
         ip_file=open(wrk_dir[0]+os.sep+'ipcache.tmp', 'r')
@@ -175,28 +202,18 @@ def make_legend(filename):
     ip_file.close()
     return(ip_dict)
 
-def neat_print(ne_list, filename):
-    for item in ne_list:
-        try:
-            item[0]=node_dict[item[0]]
-            item[1]=node_dict[item[1]]
-        except:
-            pass
-    with open(filename, 'w') as logfile:
-        logfile.write("The status as on "+str(time.strftime("%H:%M:%S  %d/%m/%y")+":\n\n"))
-        for row in ne_list:
-            logfile.write(str(row[0])+" to "+str(row[1])+" path is "+str(row[2])+" Power level= "+str(row[3])+"dBm\n")
-        logfile.write("\n Took "+(str(time.time()-start_time))+" seconds.")
-        logfile.write("\n Visited "+(str(len(visited_nodes)))+" nodes.")
-    return()
-    
 def make_html(ne_list, filename, start_time):
+    """Save the report as a HTML file"""
+    
     for item in ne_list:
+        #Use node names if available else use IP
         try:
             item[0]=node_dict[item[0]]  #Source
             item[1]=node_dict[item[1]]  #Destination
         except:
             pass
+    
+    #Prepare the HTML file
     with open(filename, 'w') as htmlfile:
         file_time=str(time.strftime("%H:%M:%S  %d/%m/%y"))
         htmlfile.write('<HTML>\n<HEAD>\n\t<TITLE>Route Status on '+file_time+'</TITLE>')
@@ -255,19 +272,28 @@ def make_html(ne_list, filename, start_time):
         htmlfile.write('\n</TR>\n</TABLE><BR>\n\n')
         
         htmlfile.write("\n<BR> Visited "+str(len(node_dict.keys()))+" nodes in "+(str(time.time()-start_time))+" seconds.")
-        #htmlfile.write("\n<br><br> Visited "+(str(len(visited_nodes)))+" nodes.")
         htmlfile.write('\n\n<!--Scripted by Abinash Sahu-->')
-        htmlfile.write('\n<br><br><br>~~~ Scripted by Abinash Sahu ~~~</BODY></HTML>')
+        htmlfile.write('\n<br><br>Script from https://github.com/abinash111/pyjas')
+        htmlfile.write('\n</BODY>\n</HTML>')
+    
+    #Display the report in the default browser
     webbrowser.open_new_tab(filename)
     return()
 
 
 if __name__=='__main__':
     global username, passw
-
+    
+    #Create the 'logs' folder if it doesn't exist
     check_or_make("logs")
+    
+    #This is the file name we are going to store the report with
     filename=str(os.getcwd()+os.sep+'logs'+os.sep+str(time.strftime("%d%m%y%H%M%S"))+".html")
+    
+    #Just for the stats
     start_time=time.time()
+    
+    #Check if all necessary parameters have been provided
     if len(sys.argv)>3:
         start_ip=str(sys.argv[1])
         username=str(sys.argv[2])
@@ -276,12 +302,13 @@ if __name__=='__main__':
         print('Missing/invalid parameters. Exiting.')
         raw_input()
         sys.exit()
-
+    
+    #Initialize the queue
     nodes_to_visit.put(start_ip)
-
+    
     #create_threads(max_num_threads, nodes_to_visit)
-    get_node_2(nodes_to_visit, 'START')
-
+    get_node(nodes_to_visit, 'START')
+    
     #wait till all threads finished working
     nodes_to_visit.join()
     
@@ -293,6 +320,5 @@ if __name__=='__main__':
         print("ERROR : Check LAN connection/settings")
     print("Please close this window")
 
-    #raw_input()
-    #sys.exit()
-    
+    raw_input()
+    exit()
