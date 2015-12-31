@@ -205,6 +205,10 @@ def make_legend(filename):
 def make_html(ne_list, filename, start_time):
     """Save the report as a HTML file"""
     
+    #Keep list of inaccessible nodes
+    na_nodes=[]
+    
+    #ne_list contains link status of all nodes
     for item in ne_list:
         #Use node names if available else use IP
         try:
@@ -228,6 +232,14 @@ def make_html(ne_list, filename, start_time):
                     #data tbody tr:hover{
 						background-color:#FFF380;
 					}
+                    .notavailable{
+                        background-color: #FF0000;
+                        color: #FFFFFF;
+                        }
+                    .available{
+                        background-color: #008000;
+                        color: #FFFFFF;
+                    }
                     </STYLE>
                         '''
         htmlfile.write(cssStyles)
@@ -246,13 +258,20 @@ def make_html(ne_list, filename, start_time):
                 power_color='ORANGE>'
             else:
                 power_color='BLUE>'
+            
+            #Row[0] = DEST, Row[1] = SOURCE, Row[2] = STATUS & Row[3] = power
+            #If received power is -99 and only IP address in source name
+            #put node in not reachable list
+            
+            if row[2]==-99 and re.match(r'[\d]+.[\d]+.', row[1]):
+                na_nodes.append(str(row[1]))
                 
             htmlfile.write('<TR>\n\t<TD>'+str(row[0])+'</TD>\n\t<TD>'+str(row[1])+
                            '</TD>\n\t<TD><CENTER><FONT COLOR='+status_color+str(row[2])+
                            '</FONT></CENTER></TD>\n\t<TD><CENTER><FONT COLOR='+power_color+str(row[3])+"</FONT></CENTER></TD>\n</TR>\n")
         htmlfile.write("\n</TBODY>\n</TABLE>\n<br>")
 
-        #Make legend
+        #Make legend section
         ip_dict=make_legend(filename)
         htmlfile.write('<BR>\n'*2)
         legend_col=3
@@ -267,13 +286,19 @@ def make_html(ne_list, filename, start_time):
             else:
                 fmt_cntr=0
                 fmt_count+=1
-            htmlfile.write('\n\t<TD>'+str(ip_add)+'</TD>\n\t<TD><A HREF="backup'+os.sep+time.ctime()[0:3]+os.sep+str(ip_dict[ip_add])+'.html">'+str(ip_dict[ip_add])+'</A></TD>'+'\n</TR>\n<TR>'*fmt_cntr)
+            
+            if str(ip_add) in na_nodes:
+                legend_ip_fmt='notavailable">'
+            else:
+                legend_ip_fmt='available">'
+            
+            htmlfile.write('\n\t<TD CLASS="'+legend_ip_fmt+str(ip_add)+'</TD>\n\t<TD><A HREF="backup'+os.sep+time.ctime()[0:3]+os.sep+str(ip_dict[ip_add])+'.html">'+str(ip_dict[ip_add])+'</A></TD>'+'\n</TR>\n<TR>'*fmt_cntr)
 
         htmlfile.write('\n</TR>\n</TABLE><BR>\n\n')
         
         htmlfile.write("\n<BR> Visited "+str(len(node_dict.keys()))+" nodes in "+(str(time.time()-start_time))+" seconds.")
         htmlfile.write('\n\n<!--Scripted by Abinash Sahu-->')
-        htmlfile.write('\n<br><br>Script from https://github.com/abinash111/pyjas')
+        htmlfile.write('\n<br><br>Script sourced from <a href="https://github.com/abinash111/pyjas">The Pyjas project</a>')
         htmlfile.write('\n</BODY>\n</HTML>')
     
     #Display the report in the default browser
@@ -318,7 +343,7 @@ if __name__=='__main__':
         print("Log recorded to "+filename+".")
     else:
         print("ERROR : Check LAN connection/settings")
-    print("Please close this window")
+    print("Press ENTER to close this window")
 
     raw_input()
     exit()
