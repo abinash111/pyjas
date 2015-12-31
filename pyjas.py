@@ -233,12 +233,38 @@ def make_html(ne_list, filename, start_time):
 						background-color:#FFF380;
 					}
                     .notavailable{
-                        background-color: #FF0000;
+                        background-color: #F75D59;
                         color: #FFFFFF;
                         }
                     .available{
-                        background-color: #008000;
+                        background-color: #4CC417;
                         color: #FFFFFF;
+                    }
+                    .statusUp{
+                        color: green;
+                        text-align: center;
+                    }
+                    .statusDown{
+                        color: red;
+                        text-align: center;
+                    }
+                    .powerDown{
+                        color: red;
+                        text-align: center;
+                    }
+                    .powerRisky{
+                        color: orange;
+                        text-align: center;
+                    }
+                    .powerNormal{
+                        color: blue;
+                        text-align: center;
+                    }
+                    .nodeDown{
+                        background-color: red;
+                        color: white;
+                        font-weight: bold;
+                        text-align: center;                        
                     }
                     </STYLE>
                         '''
@@ -247,28 +273,37 @@ def make_html(ne_list, filename, start_time):
         htmlfile.write("<TABLE BORDER=1 ID='data'>\n<THEAD>\t\n<TR>\n\t<TH>DESTINATION</TH>\n\t<TH>SOURCE</TH>\n\t<TH>STATUS</TH>\n\t<TH>POWER LEVEL (dBm)</TH>\n\t</TR>\n</THEAD>\n<TBODY>\n")
         for row in ne_list:
             
+            #Status formatting
             if 'Down' in str(row[2]):
-                status_color='RED>'
+                status_format='statusDown">'
             else:
-                status_color='GREEN>'
-                
+                status_format='statusUp">'
+            
+            #Power formatting
             if float(str(row[3]))<-34.99:
-                power_color='RED>'
+                power_format='powerDown">'
             elif float(str(row[3]))>-34.99 and float(str(row[3]))<-30.0:
-                power_color='ORANGE>'
+                power_format='powerRisky">'
             else:
-                power_color='BLUE>'
+                power_format='powerNormal">'
             
             #Row[0] = DEST, Row[1] = SOURCE, Row[2] = STATUS & Row[3] = power
             #If received power is -99 and only IP address in source name
-            #put node in not reachable list
+            #put node in not reachable list & highlight row
             
-            if row[2]==-99 and re.match(r'[\d]+.[\d]+.', row[1]):
+            if float(str(row[3]))==-99 and re.match(r'[\d]+.[\d]+.', row[1]):
                 na_nodes.append(str(row[1]))
+                status_format='nodeDown">'
+                power_format='nodeDown">'
+            
+            #Node is reachable but link is down - highlight row
+            if float(str(row[3]))==-99 and 'Down' in str(row[2]):
+                status_format='nodeDown">'
+                power_format='nodeDown">'
                 
             htmlfile.write('<TR>\n\t<TD>'+str(row[0])+'</TD>\n\t<TD>'+str(row[1])+
-                           '</TD>\n\t<TD><CENTER><FONT COLOR='+status_color+str(row[2])+
-                           '</FONT></CENTER></TD>\n\t<TD><CENTER><FONT COLOR='+power_color+str(row[3])+"</FONT></CENTER></TD>\n</TR>\n")
+                           '</TD>\n\t<TD CLASS="'+status_format+str(row[2])+
+                           '</TD>\n\t<TD CLASS="'+power_format+str(row[3])+'</TD>\n</TR>\n')
         htmlfile.write("\n</TBODY>\n</TABLE>\n<br>")
 
         #Make legend section
