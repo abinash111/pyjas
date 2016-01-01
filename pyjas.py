@@ -45,7 +45,7 @@ class NE:
         try:
             br=mechanize.Browser()                                  #Create nechanize browser object
             br.add_password(self.baseurl, username, passw)		    #Get user id and password from command line arguements
-            page=br.open(self.baseurl, timeout=10.0).read()		    #Check if NE is accessible
+            page=br.open(self.baseurl, timeout=5.0).read()		    #Check if NE is accessible
             if 'alarmBanner' in page:
                 print "Logged in to %s" % (self.baseurl)
 
@@ -363,10 +363,17 @@ if __name__=='__main__':
         sys.exit()
     
     #Initialize the queue
-    nodes_to_visit.put(start_ip)
-    
-    #create_threads(max_num_threads, nodes_to_visit)
-    get_node(nodes_to_visit, 'START')
+    nodes_from_cache=make_legend(filename)
+    if nodes_from_cache:
+        for node in nodes_from_cache.keys():
+            nodes_to_visit.put(node)
+            th=threading.Thread(target=get_node, args=(nodes_to_visit,node, ))
+            th.setDaemon(True)
+            th.start()
+    else:
+        nodes_to_visit.put(start_ip)
+        #create_threads(max_num_threads, nodes_to_visit)
+        get_node(nodes_to_visit, 'START')
     
     #wait till all threads finished working
     nodes_to_visit.join()
