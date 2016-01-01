@@ -362,18 +362,11 @@ if __name__=='__main__':
         raw_input()
         sys.exit()
     
-    #Initialize the queue
-    nodes_from_cache=make_legend(filename)
-    if nodes_from_cache:
-        for node in nodes_from_cache.keys():
-            nodes_to_visit.put(node)
-            th=threading.Thread(target=get_node, args=(nodes_to_visit,node, ))
-            th.setDaemon(True)
-            th.start()
-    else:
-        nodes_to_visit.put(start_ip)
-        #create_threads(max_num_threads, nodes_to_visit)
-        get_node(nodes_to_visit, 'START')
+    #Initialize the queue    
+    nodes_to_visit.put(start_ip)
+    
+    #create_threads(max_num_threads, nodes_to_visit)
+    get_node(nodes_to_visit, 'START')
     
     #wait till all threads finished working
     nodes_to_visit.join()
