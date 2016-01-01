@@ -220,8 +220,8 @@ def make_html(ne_list, filename, start_time):
     #Prepare the HTML file
     with open(filename, 'w') as htmlfile:
         file_time=str(time.strftime("%H:%M:%S  %d/%m/%y"))
-        htmlfile.write('<HTML>\n<HEAD>\n\t<TITLE>Route Status on '+file_time+'</TITLE>')
-        cssStyles='''\n\n<STYLE TYPE="TEXT/CSS">
+        htmlfile.write('<!DOCTYPE html>\n<HTML>\n<HEAD>\n\t<TITLE>Route Status on '+file_time+'</TITLE>')
+        cssStyles='''\n\t<STYLE TYPE="TEXT/CSS">
                     a{
                         text-decoration:none;
                         color:black;
@@ -266,8 +266,8 @@ def make_html(ne_list, filename, start_time):
                         font-weight: bold;
                         text-align: center;                        
                     }
-                    </STYLE>
-                        '''
+                </STYLE>
+                '''
         htmlfile.write(cssStyles)
         htmlfile.write("\n</HEAD>\n<BODY>\nThe status as on "+file_time+":\n\n<BR><BR>\n")
         htmlfile.write("<TABLE BORDER=1 ID='data'>\n<THEAD>\t\n<TR>\n\t<TH>DESTINATION</TH>\n\t<TH>SOURCE</TH>\n\t<TH>STATUS</TH>\n\t<TH>POWER LEVEL (dBm)</TH>\n\t</TR>\n</THEAD>\n<TBODY>\n")
