@@ -185,7 +185,7 @@ def get_node(node_queue, prev_node):
 def make_legend(filename):
     """Uses the IP Cache file to store/retrieve IP <> Name mappings. If 
     the cache file exists opens it and updates else creates with the 
-    available data."""
+    available data. Future -- Change from pickle to JSON"""
     
     wrk_dir=os.path.split(filename)
     if os.path.isfile(wrk_dir[0]+os.sep+'ipcache.tmp'):
@@ -205,8 +205,8 @@ def make_legend(filename):
 def make_html(ne_list, filename, start_time):
     """Save the report as a HTML file"""
     
-    #Keep list of inaccessible nodes
-    na_nodes=[]
+    #Keep list of accessible nodes
+    reachable_nodes=[]
     
     #ne_list contains link status of all nodes
     for item in ne_list:
@@ -288,16 +288,14 @@ def make_html(ne_list, filename, start_time):
                 power_format='powerNormal">'
             
             #Row[0] = DEST, Row[1] = SOURCE, Row[2] = STATUS & Row[3] = power
-            #If received power is -99 and only IP address in source name
-            #put node in not reachable list & highlight row
+            #If received power is not -99 and source name is present
+            #put node in reachable list
             
-            if float(str(row[3]))==-99 and re.match(r'[\d]+.[\d]+.', row[1]):
-                na_nodes.append(str(row[1]))
-                status_format='nodeDown">'
-                power_format='nodeDown">'
+            if not(float(str(row[3]))==-99 and re.match(r'[\d]+.[\d]+.', row[1])):
+                reachable_nodes.append(str(row[1]))
             
-            #Node is reachable but link is down - highlight row
-            if float(str(row[3]))==-99 and 'Down' in str(row[2]):
+            #Highlight row if power is -99 and either node name is not present or node status is DOWN
+            if float(str(row[3]))==-99 and ('Down' in str(row[2]) or re.match(r'[\d]+.[\d]+.', row[1])):
                 status_format='nodeDown">'
                 power_format='nodeDown">'
                 
@@ -322,10 +320,11 @@ def make_html(ne_list, filename, start_time):
                 fmt_cntr=0
                 fmt_count+=1
             
-            if str(ip_add) in na_nodes:
-                legend_ip_fmt='notavailable">'
-            else:
+            #If name of node is in reachable mark as available else not available
+            if str(ip_dict[ip_add]) in reachable_nodes:
                 legend_ip_fmt='available">'
+            else:
+                legend_ip_fmt='notavailable">'
             
             htmlfile.write('\n\t<TD CLASS="'+legend_ip_fmt+str(ip_add)+'</TD>\n\t<TD><A HREF="backup'+os.sep+time.ctime()[0:3]+os.sep+str(ip_dict[ip_add])+'.html">'+str(ip_dict[ip_add])+'</A></TD>'+'\n</TR>\n<TR>'*fmt_cntr)
 
