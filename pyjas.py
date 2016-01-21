@@ -295,7 +295,7 @@ def make_html(ne_list, filename, start_time):
                 reachable_nodes.append(str(row[1]))
             
             #Highlight row if power is -99 and either node name is not present or node status is DOWN
-            if float(str(row[3]))==-99 and ('Down' in str(row[2]) or re.match(r'[\d]+.[\d]+.', row[1])):
+            if float(str(row[3]))==-99:         #and ('Down' in str(row[2]) or re.match(r'[\d]+.[\d]+.', row[1])):
                 status_format='nodeDown">'
                 power_format='nodeDown">'
                 
