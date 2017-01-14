@@ -20,8 +20,9 @@ max_num_threads=6
 node_dict={} #Contains ip-name mapping of nodes in network with ip as key
 full_list=[] #Contains list of all links
 fail_times=[]
+backup_folder_path=''
 
-def check_or_make(folder_path, frm):
+def check_or_make(folder_path):
     """Check if provided folder exists at the specified location
     otherwise create it there.
     """
@@ -35,6 +36,14 @@ def check_or_make(folder_path, frm):
             os.chdir(folder)
     os.chdir(curr_directory)
     return curr_directory
+    
+def get_backup_folder():
+    global backup_folder_path
+    if not backup_folder_path:
+        backup_folder="logs"+os.sep+"backup"+os.sep+time.ctime()[0:3]
+        backup_folder_path=str(check_or_make(backup_folder))+os.sep+backup_folder
+    #+os.sep+backup_folder+os.sep+str(self.name)+".html")
+    return backup_folder_path
 
 class NE:
     def __init__(self, ip):
@@ -51,16 +60,19 @@ class NE:
             if 'alarmBanner' in page:
                 print "Logged in to %s" % (self.baseurl)
 
-            loggedIn=self.get_laser_data(br)                                                 #Read laser data of STM ports
+            loggedIn=self.get_laser_data(br)                                        #Read laser data of STM ports
             failTime=threading.Thread(target=self.get_fail_time, args=(br,))
             failTime.start()
             #self.get_fail_time(br)                                                 #Read alarams (MS DCC Fail only)
-
-            self.add_neighbours(br)                                                 #Add neighbours
+            
+            addNeighbours=threading.Thread(target=self.add_neighbours, args=(br,))
+            addNeighbours.start()
+            #self.add_neighbours(br)                                                 #Add neighbours
             
             if loggedIn:
-                self.backup(br)										                     #Backup cross-connect info
+                self.backup(br)										                #Backup cross-connect info
             failTime.join()
+            addNeighbours.join()
             
             if self.alarams_dict:
                 for stm in self.alarams_dict.keys():
@@ -175,9 +187,9 @@ class NE:
             backup_head="<HTML>\n<TITLE> Cross-connect backup of "+self.name+" taken on "+time_backup+"</TITLE>\n</HEAD>"
             backup_table_line='<TABLE  BORDER="1" CELLPADDING="0" CELLSPACING="0" WIDTH="60%" STYLE="background-color: #AAAAAA">'
             backup_body="<BODY><B><FONT COLOR='RED'>Cross-connect backup of "+self.name+" taken on "+time_backup+"</B></FONT>"
-            backup_folder="logs"+os.sep+"backup"+os.sep+time.ctime()[0:3]
-
-            filename=str(check_or_make(backup_folder, self.ip)+os.sep+backup_folder+os.sep+str(self.name)+".html")
+            
+            filename="{}{}{}.html".format(str(get_backup_folder()),os.sep,str(self.name))
+            
             with open (filename, 'w') as bkpconfig:
                 bkpconfig.write(backup_head+backup_body+backup_table_line+configs)
             print("Config file for "+str(self.name)+" written to disk.")
@@ -198,6 +210,8 @@ class NE:
             try:
                 self.name=re.search(name_pattern, laser_stat_page).group(1)
                 self.name=str(re.sub('[^\s!-~]', ' ', self.name)).lstrip().rstrip()
+                if os.sep in self.name:
+                    self.name=self.name.replace(os.sep,'')
             except:
                 print("\tError getting name for {}".format(self.baseurl))
                 return()
@@ -316,7 +330,7 @@ def make_html(ne_list, filename, start_time):
     
     #Prepare the HTML file
     with open(filename, 'w') as htmlfile:
-        file_time=str(time.strftime("%H:%M:%S  %d/%m/%y"))
+        file_time=str(datetime.now().strftime("%H:%M:%S  %d/%m/%y"))
         htmlfile.write('<!DOCTYPE html>\n<HTML>\n<HEAD>\n\t<TITLE>Route Status on '+file_time+'</TITLE>')
         cssStyles='''\n\t<STYLE TYPE="TEXT/CSS">
                     a{
@@ -460,10 +474,10 @@ if __name__=='__main__':
     global username, passw
     
     #Create the 'logs' folder if it doesn't exist
-    check_or_make("logs", 'Start')
+    check_or_make("logs")
     
     #This is the file name we are going to store the report with
-    filename=str(os.getcwd()+os.sep+'logs'+os.sep+str(time.strftime("%d%m%y%H%M%S"))+".html")
+    filename=str(os.getcwd()+os.sep+'logs'+os.sep+str(datetime.now().strftime("%d%m%y%H%M%S"))+".html")
     
     #Just for the stats
     start_time=time.time()
