@@ -50,13 +50,24 @@ class NE:
         self.ip=ip
         self.neighbours={}
         self.laser_ports={}
-
+        self.new_adm=False
         self.baseurl='http://%s:20080/' % (self.ip)
 
         try:
             br=mechanize.Browser()                                                  #Create mechanize browser object
-            br.add_password(self.baseurl, username, passw)		                    #Get user id and password from command line arguements
-            page=br.open(self.baseurl, timeout=5.0).read()		                    #Check if NE is accessible
+            try:
+                if 'TJ1400' in br.open(self.baseurl, timeout=5.0).read():
+                    self.new_adm=True
+                br.form=list(br.forms())[0]
+                controls=list(br.form.controls)
+                controls[0].value='tejas'
+                controls[1].value='j72e#05t'
+                page=br.submit()
+            except:
+                br=mechanize.Browser()
+                br.add_password(self.baseurl, username, passw)		                #Get user id and password from command line arguements
+                page=br.open(self.baseurl, timeout=5.0).read()		                #Check if NE is accessible
+
             if 'alarmBanner' in page:
                 print "Logged in to %s" % (self.baseurl)
 
@@ -231,10 +242,11 @@ class NE:
         alaram_pattern=r'\s<Time>(.*?)</Time>.*?<Info>Line / MS DCC Link Failure</Info>.*?<Object>STM16?-(.*?)</Object>'
         alaram_reg=re.compile(alaram_pattern, flags=re.S)
         
-        try:    
-            time_pg=br.open(self.baseurl+'AlarmBanner', timeout=3.0).read()
-            self.time=re.search(r'.*?<LastRefreshTime>(.*?) IST</LastRefreshTime>', time_pg).group(1)
-            self.time=datetime.strptime(self.time, "%m/%d/%Y %H:%M:%S")#.strftime("%c")
+        try:
+            if self.new_adm==False:    
+                time_pg=br.open(self.baseurl+'AlarmBanner', timeout=3.0).read()
+                self.time=re.search(r'.*?<LastRefreshTime>(.*?) IST</LastRefreshTime>', time_pg).group(1)
+                self.time=datetime.strptime(self.time, "%m/%d/%Y %H:%M:%S")#.strftime("%c")
         except Exception as e:
             print('Error getting node time. Error: {}'.format(str(e)))
         
@@ -427,7 +439,7 @@ def make_html(ne_list, filename, start_time):
         #List fail times
         if fail_times:
             htmlfile.write('<BR>\n'*2)
-            htmlfile.write('\n<B>FAIL TIMEs:</B><BR>\n')
+            htmlfile.write('\n<B>FAIL TIMEs (please ignore historical faults):</B><BR>\n')
             htmlfile.write('<TABLE BORDER=1 ID="fail_times"><TR>\n'+'\n\t<TH>NODE</TH>\n\t<TH>PORT</TH>\n\t<TH>DOWN SINCE</TH>\n</TR>')
 
             for entry in fail_times:
