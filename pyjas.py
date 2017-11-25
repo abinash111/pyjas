@@ -51,6 +51,7 @@ class NE:
         self.neighbours={}
         self.laser_ports={}
         self.new_adm=False
+        #print(self.ip, type(self.ip))
         self.baseurl='http://%s:20080/' % (self.ip)
 
         try:
@@ -63,10 +64,12 @@ class NE:
                 controls[0].value='tejas'
                 controls[1].value='j72e#05t'
                 page=br.submit()
+                self.new_adm=True
             except:
                 br=mechanize.Browser()
                 br.add_password(self.baseurl, username, passw)		                #Get user id and password from command line arguements
                 page=br.open(self.baseurl, timeout=5.0).read()		                #Check if NE is accessible
+                self.new_adm=False
 
             if 'alarmBanner' in page:
                 print "Logged in to %s" % (self.baseurl)
@@ -189,9 +192,12 @@ class NE:
         but running another time on Wednesday WILL overwrite the first 
         cross-connect backup of Wednesday.
         """
-        
+        #new URL=file:///EMSRequest/ViewConnections?ViewAll=1
         try:
-            configs=br.open(self.baseurl+'EMSRequest/ViewConnections', timeout=10.0).read()
+            if self.new_adm:
+                configs=br.open(self.baseurl+'EMSRequest/ViewConnections?ViewAll=1', timeout=10.0).read()
+            else:
+                configs=br.open(self.baseurl+'EMSRequest/ViewConnections', timeout=10.0).read()
             start_copy=configs.find('<CAPTION><B>Cross')
             configs=configs[start_copy:-1]
             time_backup=str(datetime.now().strftime("%c")+":\n\n")
@@ -291,17 +297,37 @@ def get_node(node_queue, prev_node):
     if not (current_node in visited_nodes):
         visited_nodes.append(current_node)
         node=NE(current_node)
-        if(node.neighbours):
-            for neighbour in node.neighbours.keys():
-                if not(node.neighbours[neighbour][0] in visited_nodes):
-                    node_queue.put(node.neighbours[neighbour][0])
-                    th_count+=1
+        
+        try:
+            if(node.ospf_neighbours):
+                for neighbour in node.ospf_neighbours.keys():
+                    if not(neighbour[0] in visited_nodes):
+                        #print(neighbour[0], type(neighbour[0]))
+                        node_queue.put(neighbour[0])
+                        th_count+=1
+            elif(node.neighbours):
+                for neighbour in node.neighbours.keys():
+                    if not(node.neighbours[neighbour][0] in visited_nodes):
+                        #print(node.neighbours[neighbour][0], type(node.neighbours[neighbour][0]))
+                        node_queue.put(node.neighbours[neighbour][0])
+                        th_count+=1
+            else:
+                pass
+        except Exception as e:
+            print("Error {}".format(str(e)))
+            if(node.neighbours):
+                for neighbour in node.neighbours.keys():
+                    if not(node.neighbours[neighbour][0] in visited_nodes):
+                        #print(node.neighbours[neighbour][0], type(node.neighbours[neighbour][0]))
+                        node_queue.put(node.neighbours[neighbour][0])
+                        th_count+=1
+            
         for i in range(th_count):
             th=threading.Thread(target=get_node, args=(node_queue,current_node, ))
             th.setDaemon(True)
             th.start()
     node_queue.task_done()
-    #print('Task Done')
+    #print("Work over for {} -- {}".format(str(node.ip),str(node.name)))
     #exit()
     return()
 
