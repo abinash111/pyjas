@@ -56,6 +56,15 @@ class NE:
 
         try:
             br=mechanize.Browser()                                                  #Create mechanize browser object
+            #Added false headers
+            try:
+                cookies = mechanize.CookieJar()
+                opener = mechanize.build_opener(mechanize.HTTPCookieProcessor(cookies))
+                opener.addheaders = [("User-agent", "Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko")]
+                mechanize.install_opener(opener)
+            except Exception as e:
+                print(str(e))
+            
             try:
                 if 'TJ1400' in br.open(self.baseurl, timeout=5.0).read():
                     self.new_adm=True
@@ -65,12 +74,14 @@ class NE:
                 controls[1].value='j72e#05t'
                 page=br.submit()
                 self.new_adm=True
-            except:
+                time.sleep(5)
+                page=br.open(self.baseurl, timeout=5.0).read()
+            except Exception as e:
+                #print("{}-{}".format(str(e), self.ip))
                 br=mechanize.Browser()
                 br.add_password(self.baseurl, username, passw)		                #Get user id and password from command line arguements
                 page=br.open(self.baseurl, timeout=5.0).read()		                #Check if NE is accessible
                 self.new_adm=False
-
             if 'alarmBanner' in page:
                 print "Logged in to %s" % (self.baseurl)
 
@@ -81,13 +92,13 @@ class NE:
             
             addNeighbours=threading.Thread(target=self.add_neighbours, args=(br,))
             addNeighbours.start()
-            #self.add_neighbours(br)                                                 #Add neighbours
+            #self.add_neighbours(br)                                                #Add neighbours
             
             if loggedIn:
                 self.backup(br)										                #Backup cross-connect info
             failTime.join()
             addNeighbours.join()
-            
+            #print(self.neighbours)
             if self.alarams_dict:
                 for stm in self.alarams_dict.keys():
                     if stm in self.neighbours.keys():
@@ -103,9 +114,8 @@ class NE:
         """Goes through the list of IPs  listed as neighbours and 
         copies their state, IP & STM port number.
         """
-        
         listed_neighbours={}
-        
+
         #Regex patterns
         row_pattern=r'<b>Trunk.*[\n]+.*?<SEL'
         ip_status_pattern=r'</A> </TH><TD >([\S]+).*?</TD><TD >.*?\d+(?:[\d\.]+){3}.*?(\d+(?:[\d\.]+){3}).*?</TD>'
@@ -117,7 +127,7 @@ class NE:
         ospfThread.start()
         
         nbr_ne_status=br.open(self.baseurl+'EMSRequest/ViewTrunk', timeout=5.0).read().rstrip()
-            
+
         node_dict[self.ip]=self.name
         for srch in re.findall(row_pattern,nbr_ne_status):
             match=ip_status_reg.search(srch)
@@ -127,10 +137,12 @@ class NE:
                 stm=str(stm_reg.search(srch).group(1)).strip()
 
                 try:
-                    listed_neighbours[(ip, stm)]={'status':status, 'laser_power':self.laser_ports[stm]}
-                    #full_list.append([self.ip,ip,status, self.laser_ports[stm]])
-                    #self.neighbours.append([ip,status.upper(), self.laser_ports[stm]])
-                except:
+                    if stm in self.laser_ports.keys():
+                        listed_neighbours[(ip, stm)]={'status':status, 'laser_power':self.laser_ports[stm]}
+                        #full_list.append([self.ip,ip,status, self.laser_ports[stm]])
+                        #self.neighbours.append([ip,status.upper(), self.laser_ports[stm]])
+                except Exception as e:
+                    print("{} - {}".format(str(e), self.ip))
                     return()
 
         try:
@@ -193,6 +205,7 @@ class NE:
         cross-connect backup of Wednesday.
         """
         #new URL=file:///EMSRequest/ViewConnections?ViewAll=1
+        #print(br)
         try:
             if self.new_adm:
                 configs=br.open(self.baseurl+'EMSRequest/ViewConnections?ViewAll=1', timeout=10.0).read()
@@ -218,18 +231,20 @@ class NE:
         """Reads the received laser power from different STM ports and 
         records them against the ports.
         """
-        
-        laser_pattern=r'<TD >STM\d+\-(\d.*?)</TD>.*?([\-\d].*?)</TD><TD >'
+
+        laser_pattern=r'<TD >STM\d+\-(\d.*?)</TD>.*?([\-\d].*?)</TD><TD >'      #STM16-1-2-3 STM1-1-15-1 
         name_pattern=r'\-(\S+.*?)\('
         
         try:
             laser_stat_page=br.open(self.baseurl+'EMSRequest/Laser?Submit=View', timeout=10.0).read()
+
             try:
                 self.name=re.search(name_pattern, laser_stat_page).group(1)
                 self.name=str(re.sub('[^\s!-~]', ' ', self.name)).lstrip().rstrip()
                 if os.sep in self.name:
                     self.name=self.name.replace(os.sep,'')
-            except:
+            except Exception as e:
+                print("{} - {}".format(self.ip, str(e)))
                 print("\tError getting name for {}".format(self.baseurl))
                 return()
                 
@@ -297,7 +312,7 @@ def get_node(node_queue, prev_node):
     if not (current_node in visited_nodes):
         visited_nodes.append(current_node)
         node=NE(current_node)
-        
+
         try:
             if(node.ospf_neighbours):
                 for neighbour in node.ospf_neighbours.keys():
@@ -314,14 +329,14 @@ def get_node(node_queue, prev_node):
             else:
                 pass
         except Exception as e:
-            print("Error {}".format(str(e)))
+            print("Error {} - {}".format(str(e), str(node.ip)))
             if(node.neighbours):
                 for neighbour in node.neighbours.keys():
                     if not(node.neighbours[neighbour][0] in visited_nodes):
                         #print(node.neighbours[neighbour][0], type(node.neighbours[neighbour][0]))
                         node_queue.put(node.neighbours[neighbour][0])
                         th_count+=1
-            
+
         for i in range(th_count):
             th=threading.Thread(target=get_node, args=(node_queue,current_node, ))
             th.setDaemon(True)
@@ -539,7 +554,7 @@ if __name__=='__main__':
     #wait till all threads finished working
     nodes_to_visit.join()
     
-    if len(full_list)>1:
+    if len(full_list)>0:
         print("Writing to file...")
         make_html(full_list, filename, start_time)
         print("Log recorded to "+filename+".")
@@ -547,4 +562,4 @@ if __name__=='__main__':
         print("ERROR : Check LAN connection/settings")
     #print("Press ENTER to close this window")
     #raw_input()
-    exit()
+    #exit()
